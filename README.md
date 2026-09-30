@@ -30,24 +30,33 @@ The four-check contract was reviewed against LevelClose `CheckName` on
 2026-09-30. Review both sides deliberately if the public contract changes;
 do not accept arbitrary extra/missing checks as healthy.
 
-## Publication checklist
+## Publication and proof
 
-This payload is prepared, not operational. Publish only these four files into
-a fresh public repository, without the application's history. Enable issues
-and pre-create labels `levelclose-monitor` and `self-test`. Do not add personal
+These four files were published into a fresh public repository, without the
+application's history. Issues are enabled and labels `levelclose-monitor` and
+`self-test` exist. Do not add personal
 tokens or production secrets: the workflow uses its own short-lived token
 only for its own repository's issue API.
 
-Record repository URL: **pending publication**.
-Record publication date: **pending publication**.
-First monthly owner review due: **set to publication date plus one month**.
+Repository: [dabra-labs/levelclose-monitor](https://github.com/dabra-labs/levelclose-monitor).
+Publication: **2026-09-30**.
+First monthly owner review due: **2026-10-30**.
 Owner notification delivery: **unverified**.
 
-Run live mode once. Then dispatch `synthetic-failure` twice and
-`synthetic-recovery` twice: one conspicuously labeled SELF-TEST issue should
-be created and closed, with no repeated issue writes. Synthetic modes never
-request or alter the product and cannot close a live incident. Confirm the
-next scheduled live run actually occurs.
+The [first live run](https://github.com/dabra-labs/levelclose-monitor/actions/runs/36740438216)
+observed `healthy: true`. The initial self-test created
+[issue #1](https://github.com/dabra-labs/levelclose-monitor/issues/1) but failed
+while interpreting an unrelated response Link as pagination. Commit `5f67948`
+limits pagination to issue-list reads; 56 boundary tests passed with 100%
+coverage on the hosted runner. The
+[repeated failure](https://github.com/dabra-labs/levelclose-monitor/actions/runs/36741350630)
+recognized the existing incident without another write. The
+[recovery](https://github.com/dabra-labs/levelclose-monitor/actions/runs/36741475195)
+closed issue #1, and the
+[repeated recovery](https://github.com/dabra-labs/levelclose-monitor/actions/runs/36741610775)
+made no write. Earlier failed runs remain failed evidence. Synthetic modes
+never request or alter the product and cannot close a live incident.
+The first scheduled live run is **not yet verified**.
 
 Munish must watch this repository with issue notifications enabled and
 confirm receiving the synthetic incident and recovery. Record actual evidence
@@ -69,7 +78,11 @@ date. Do not create dummy commits to manufacture activity. If disabled,
 and verify the next scheduled run. Manual dispatch alone is not proof that
 the inactivity clock was reset.
 
-Review log: **none yet; publication and delivery verification are pending**.
+Review log:
+
+- 2026-09-30 — publication and hosted live/self-test evidence recorded above.
+  Owner delivery and first scheduled observation remain unverified. Next review
+  due 2026-10-30.
 
 ## Local verification
 
