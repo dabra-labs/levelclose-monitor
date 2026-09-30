@@ -119,7 +119,10 @@ export function createGitHubApi({ repository, token, fetchImpl = fetch, timeoutM
             }, ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
           });
           if (!response.ok) throw new MonitorError('api_http');
-          const link = response.headers.get('link');
+          // Issue creation, recovery and detail responses can link a timeline.
+          // Only the issue-list read uses page relations to prove a full scan.
+          const link = method === 'GET' && path.split('?')[0] === '/issues'
+            ? response.headers.get('link') : null;
           const relations = link === null ? [] : link.split(',').map(part => {
             const relation = part.trim().match(/^<https:\/\/api\.github\.com\/[^>]+>;\s*rel="(next|prev|first|last)"$/);
             if (!relation) throw new MonitorError('api_pagination');

@@ -227,7 +227,7 @@ test('API adapter uses only its repository, bounded JSON and ephemeral token', a
       assert.equal(options.body, JSON.stringify({ title: 'test' }));
       return json({ number: 1 }, { headers: { link: '<https://api.github.com/example>; rel="next"' } });
     } });
-  assert.deepEqual(await api.request('POST', '/issues', { title: 'test' }), { data: { number: 1 }, next: true });
+  assert.deepEqual(await api.request('POST', '/issues', { title: 'test' }), { data: { number: 1 }, next: false });
   assert.throws(() => createGitHubApi({ repository: 'https://evil.example', token: 'test' }), errorCode('invalid_configuration'));
   assert.throws(() => createGitHubApi({ repository: 'example/monitor' }), errorCode('invalid_configuration'));
   assert.throws(() => createGitHubApi({ token: 'synthetic-token' }), errorCode('invalid_configuration'));
@@ -252,6 +252,39 @@ test('API pagination recognizes complete standard Link relations without followi
     fetchImpl: async () => json([], { headers: { link:
       '<https://api.github.com/repos/example/monitor/issues?page=1>; rel="prev", <https://api.github.com/repos/example/monitor/issues?page=4>; rel="last"' } }) });
   assert.equal((await api.request('GET', '/issues')).next, false);
+});
+
+test('only issue-list reads parse pagination; issue writes with timeline Links reconcile once', async () => {
+  const memory = memoryApi();
+  const calls = [];
+  const api = createGitHubApi({ repository: 'example/monitor', token: 'synthetic-token',
+    fetchImpl: async (url, options) => {
+      const parsed = new URL(url);
+      const path = parsed.pathname.replace('/repos/example/monitor', '') + parsed.search;
+      calls.push(options.method);
+      const result = await memory.api.request(options.method, path,
+        options.body ? JSON.parse(options.body) : undefined);
+      const headers = options.method === 'GET' ? undefined : {
+        link: '<https://api.github.com/repos/example/monitor/issues/1/timeline>; rel="timeline"',
+      };
+      return json(result.data, { headers });
+    } });
+  assert.deepEqual(await reconcile(api, failure, 'synthetic-failure', at, run), { action: 'create', number: 1 });
+  assert.deepEqual(await reconcile(api, failure, 'synthetic-failure', at, run), { action: 'ongoing', number: 1 });
+  assert.deepEqual(await reconcile(api, success, 'synthetic-recovery', at, run), { action: 'recover', number: 1 });
+  assert.deepEqual(await reconcile(api, success, 'synthetic-recovery', at, run), { action: 'none' });
+  assert.deepEqual(calls, ['GET', 'POST', 'GET', 'GET', 'PATCH', 'GET']);
+  assert.equal(memory.issues.length, 1);
+  assert.equal(memory.issues[0].state, 'closed');
+});
+
+test('issue-list pagination still detects next pages while issue detail ignores unrelated Links', async () => {
+  const api = createGitHubApi({ repository: 'example/monitor', token: 'synthetic-token',
+    fetchImpl: async url => url.includes('/issues?')
+      ? json([], { headers: { link: '<https://api.github.com/repos/example/monitor/issues?page=2>; rel="next"' } })
+      : json(issue(), { headers: { link: '<https://api.github.com/repos/example/monitor/issues/1/timeline>; rel="timeline"' } }) });
+  assert.equal((await api.request('GET', '/issues?page=1')).next, true);
+  assert.deepEqual(await api.request('GET', '/issues/1'), { data: issue(), next: false });
 });
 
 test('synthetic run sequence touches only the API and preserves live incident', async () => {
